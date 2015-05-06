@@ -2,38 +2,9 @@ __author__ = 'francesco'
 
 import optparse
 import subprocess
-import urllib2
 import sys
-import traceback
-import re
-import time
-
-import json
-import httplib
-import urllib
-import sys
-import traceback
-import re
-from HTMLParser import HTMLParser
-import argparse
-import md5
-import time
-import hashlib
-import copy
-
-from datetime import date
-from time import gmtime, strftime
-import os
-import subprocess
-import sys
-import signal
-import shlex
-import random
-import copy
-from pprint import pprint
 import re
 import logging
-from logging.config import dictConfig
 
 CONFIG = {
     "PYIPTDOCKER_VERSION" : 0.1 ,
