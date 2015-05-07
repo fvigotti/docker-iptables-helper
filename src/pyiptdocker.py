@@ -308,7 +308,8 @@ class TemplatedChainRules:
 
     def __cleanAndSplitRulesString(self,ruleString):
         return filter(
-            lambda ruleRow:len(ruleRow)>1,
+            lambda ruleRow:
+                len(ruleRow)>1 and ruleRow[0]!="#",
             map(
                 lambda ruleRow:ruleRow.strip(), ruleString.split("\n")))
 
