@@ -1,6 +1,6 @@
 from pyiptdocker import *
 
-
+logger.setLevel(logging.DEBUG)
 initialize()
 
 ######################################

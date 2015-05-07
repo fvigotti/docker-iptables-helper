@@ -4,10 +4,12 @@ import optparse
 import subprocess
 import sys
 import re
+import os
+import imp
 import logging
 
 CONFIG = {
-    "PYIPTDOCKER_VERSION" : 0.1 ,
+    "PYIPTDOCKER_VERSION" : 2.1 ,
     "CUSTOM_CHAIN_PREFIX" : "ipth_"
 }
 
@@ -90,7 +92,7 @@ def findChains(table):
         :return array with chains found in table
     '''
     # return output in this format 'Chain INPUT (policy ACCEPT)'
-    c = execIptable("-L -t "+table+" | egrep \"^Chain\" ")
+    c = execIptable("-n -L -t "+table+" | egrep \"^Chain\" ")
 
     def getChainInLine(line):
         m = re.search('^Chain ([^\s]*)', line)
@@ -105,6 +107,7 @@ def findCustomChains(table):
         :return array with custom chains found in table
     '''
     # return output in this format 'Chain INPUT (policy ACCEPT)'
+    logger.debug("looking for custom chains in %s",table)
     return filter(
         lambda x: x.startswith(CONFIG['CUSTOM_CHAIN_PREFIX']) ,
         findChains(table))
@@ -117,7 +120,7 @@ def findJumpRuleInChain(table,chainToSearchInto,chainToFind):
     :returns list of rules ID that matches a jump rule to the desired chain in the requested chain
     '''
     logger.debug("findJumpRuleInChain: %s  %s %s",table,chainToSearchInto,chainToFind)
-    c = execIptable("-t "+table+" -L "+chainToSearchInto+" --line-number")
+    c = execIptable("-n -t "+table+" -L "+chainToSearchInto+" --line-number")
 
     def isRequiredChainJumpRule(ruleRow):
         #sample:1    ipth_first_filter_INPUT  all  --  anywhere             anywhere
@@ -270,10 +273,10 @@ def deleteAllCustomChains():
     logger.debug("[deleteAllCustomChains] _ start")
     logger.info("deleting all previously created custom chains ")
     map(
-        lambda table:
+        lambda tableName:
         map(
-            lambda customChain:recursiveDeleteOfChain(table,customChain) ,
-            findCustomChains(table)),
+            lambda customChain:recursiveDeleteOfChain(tableName,customChain) ,
+            findCustomChains(tableName)),
         IPTH_DEFAULTS['tables'].keys())
 
     logger.debug("[deleteAllCustomChains] _ end")
@@ -397,20 +400,27 @@ def get_args():
         dest='param_run_test'
     )
     parser.add_option(
+        '--verbose', '-V',
+        action="store_true",
+        default=False,
+        help='print verbose logging',
+        dest='param_verbose'
+    )
+    parser.add_option(
         '--save-rules', '-S',
         action="store_true",
         default=False,
         help='save iptables rules (except docker rules) for next iptables restart',
         dest='param_save_rules'
     )
-    #
-    # parser.add_option(
-    #     '--template', '-T',
-    #     type='string',
-    #     default="",
-    #     help='location of template file',
-    #     dest='param_template'
-    # )
+
+    parser.add_option(
+        '--template', '-T',
+        type='string',
+        default="",
+        help='location of template file',
+        dest='param_template_full_path'
+    )
 
     parser.add_option(
         '--chains-prefix', '-P',
@@ -484,11 +494,29 @@ def initialize():
     deleteAllCustomChains()
 
 
+def load_template_file(param_template_full_path):
+    logger.info("loading template file [%s]",param_template_full_path)
+    # TODO not implemented yet
+    # if not os.path.isfile(param_template_full_path):
+    #    sys.exit("cannot load tempalte file, ["+str(param_template_full_path)+"] is not a file")
+    #
+    # py_template = imp.load_source("pyiptdocker_template", param_template_full_path)
+    #
+    # initialize()
+    #
+    # py_template
+    #
+    # pass
+
+
 if __name__ == '__main__':
     # /usr/share/collectd/types.db
     #pyiptdocker_start()
     OPTIONS = get_args()
     logger.info("RUNNING IN STANDALONE EXECUTION")
+
+    if OPTIONS.param_verbose:
+        logger.setLevel(logging.DEBUG)
 
     if OPTIONS.param_chains_prefix != "":
         CONFIG['CUSTOM_CHAIN_PREFIX'] = OPTIONS.param_chains_prefix
@@ -500,8 +528,14 @@ if __name__ == '__main__':
     if OPTIONS.param_run_test:
         performTest()
 
+    if len(OPTIONS.param_template_full_path) > 1:
+        load_template_file(OPTIONS.param_template_full_path)
+
+
+
     if OPTIONS.param_save_rules:
         saveIptablesConfigurationWithoutDockerChains()
+
 
         #c = ExecBashCommand("sudo iptables -nvL")
 
@@ -511,3 +545,4 @@ if __name__ == '__main__':
         #print "command executed : " , c.out
 
 
+print "end"
