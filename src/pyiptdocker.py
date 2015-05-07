@@ -213,6 +213,13 @@ def createChain(iptChainItem):
                 str(ALLOWED_CUSTOMCHAINS_POSITIONS) )
         ))
 
+def saveIptablesConfigurationWithoutDockerChains():
+    iptableRulesFile='/etc/network/iptables.rules'
+    logger.info("saving iptables configuration on %s " , iptableRulesFile)
+    ExecBashCommand("sudo iptables-save | grep -iv ' docker0' | grep -v ' -j DOCKER' | grep -v ':DOCKER -' > "+iptableRulesFile,failPolicyJustExit)
+    logger.info("CONFIGURATION SAVED! destination was : %s " , iptableRulesFile)
+
+
 class IPTChainItem():
     destinationTable=""
     destinationChain=""
@@ -384,6 +391,13 @@ def get_args():
         help='execute tests with test chain prefix',
         dest='param_run_test'
     )
+    parser.add_option(
+        '--save-rules', '-S',
+        action="store_true",
+        default=False,
+        help='save iptables rules (except docker rules) for next iptables restart',
+        dest='param_save_rules'
+    )
     #
     # parser.add_option(
     #     '--template', '-T',
@@ -480,6 +494,9 @@ if __name__ == '__main__':
 
     if OPTIONS.param_run_test:
         performTest()
+
+    if OPTIONS.param_save_rules:
+        saveIptablesConfigurationWithoutDockerChains()
 
         #c = ExecBashCommand("sudo iptables -nvL")
 
