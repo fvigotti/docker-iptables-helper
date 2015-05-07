@@ -156,7 +156,7 @@ def recursiveDeleteOfChain(table,chainName):
                 break;
             else:
                 ruleNumberToDelete=foundJumpRules[0]
-                logger.debug("[recursiveDeleteOfChain] deleting ruile number %s that links for %s  into %s/%s",ruleNumberToDelete,chainName,table,searchIntoChain)
+                logger.debug("[recursiveDeleteOfChain] deleting rule number %s that links for %s  into %s/%s",ruleNumberToDelete,chainName,table,searchIntoChain)
                 c = execIptable("-t "+table+" -D "+searchIntoChain+" "+ruleNumberToDelete)
 
 
@@ -260,7 +260,7 @@ def deleteAllCustomChains():
     map(
         lambda table:
         map(
-            lambda customChain:recursiveDeleteOfChain("filter",customChain) ,
+            lambda customChain:recursiveDeleteOfChain(table,customChain) ,
             findCustomChains(table)),
         IPTH_DEFAULTS['tables'].keys())
 
@@ -291,16 +291,18 @@ class TemplatedChainRules:
         logger.info("initializing template on chain object [%s]",iptChainItem)
         self.iptChainItem = iptChainItem
 
+    def __cleanAndSplitRulesString(self,ruleString):
+        return filter(
+            lambda ruleRow:len(ruleRow)>1,
+            map(
+                lambda ruleRow:ruleRow.strip(), ruleString.split("\n")))
 
     def __appendRulesList(self,newRulesArray):
         # strip rows and delete empty rows
-        newRulesArray=filter( lambda ruleRow:len(ruleRow)>1,
-            map( lambda ruleRow:ruleRow.strip(), newRulesArray))
-
         logger.debug("[%s] appending rules %s ", self.iptChainItem,newRulesArray)
         self.rules=self.rules + newRulesArray
 
-    def addInterpolatedRules(self,rules):
+    def addInterpolatedRules(self,ruleString):
         """
         interpolated rules convert special keywords such  {k_table} {k_chain}
         with values of destination table and current chain name
@@ -314,12 +316,13 @@ class TemplatedChainRules:
         self.__appendRulesList(
             map(
                 applyTemplate
-                ,rules.split("\n")
+                ,self.__cleanAndSplitRulesString(ruleString)
             ))
         return self
 
     def addRawRules(self,rulesString):
-        self.__appendRulesList(rulesString.split("\n"))
+        self.__appendRulesList(
+            self.__cleanAndSplitRulesString(rulesString))
         return self
 
     def addAppendRules(self,rulesString):
@@ -329,9 +332,13 @@ class TemplatedChainRules:
         self.__appendRulesList(
             map(
                 prefixAppendRule
-                ,rulesString.split("\n")
+                ,self.__cleanAndSplitRulesString(rulesString)
             ))
         return self
+
+    def getRulesCount(self):
+        return len(self.rules)
+
 
     def apply(self):
         logger.info("Applying %s rules , on chain object [%s] ",str(len(self.rules)),self.iptChainItem)
@@ -396,29 +403,6 @@ def get_args():
 
     return parser.parse_args()[0]
 
-def pyiptdocker_start():
-
-    #
-    # logger.info("custom chains : %s " , findCustomChains("filter") )
-    # logger.info("deleting chains "  )
-    #
-    # deleteAllCustomChains()
-    #
-    # logger.info("custom chains : %s " , findCustomChains("filter") )
-    #
-    #
-    # #print findCustomChains("filter")
-    # createAutoPositionedChain("filter","output")
-    # createAutoPositionedChain("filter","input")
-    # createAutoPositionedChain("filter","input","last")
-    # createAutoPositionedChain("filter","forward")
-    # createAutoPositionedChain("filter","forward","last")
-    #
-    # createFloatingChain("filter","test_floating_1")
-    #
-
-    logger.info("custom chains : %s " , findCustomChains("filter") )
-
 
 def performTest():
     logger.setLevel(logging.DEBUG)
@@ -444,26 +428,29 @@ def performTest():
     logger.debug("t_custom1_floatingchain__chainName  = %s",t_custom1_floatingchain__chainName )
 
     ######################################
-    t_filter_input_last = TemplatedChainRules.\
-        PositionedChain("filter/INPUT/last")\
+    t_filter_input_last = TemplatedChainRules. \
+        PositionedChain("filter/INPUT/last") \
         .addAppendRules(
-r'''
--m state --state ESTABLISHED,RELATED -j ACCEPT
--s 127.0.0.1 -j ACCEPT
-'''
+        r'''
+        -m state --state ESTABLISHED,RELATED -j ACCEPT
+        -s 127.0.0.1 -j ACCEPT
+        '''
     ).addInterpolatedRules(
         r'''
     -A {k_chain} -m state --state ESTABLISHED,RELATED -j ACCEPT
     -A {k_chain} -s 127.0.0.1 -j ACCEPT
     -A {k_chain} -s 127.0.0.1 -j '''+t_custom1_floatingchain__chainName+'''
+
         '''
     ).apply()
 
     t_filter_input_last__chainName = t_filter_input_last.iptChainItem.chainName
+    logger.debug("rulesCount= %s",t_filter_input_last.getRulesCount())
+    assert t_filter_input_last.getRulesCount() == 5
     ######################################
 
     map(
-        lambda table:execIptable("-t " + table + " -nvL ") ,
+        lambda table: execIptable("-t " + table + " -nvL ") ,
         IPTH_DEFAULTS['tables'].keys())
 
     logger.info("test finished, performing cleanup...")
@@ -494,11 +481,11 @@ if __name__ == '__main__':
     if OPTIONS.param_run_test:
         performTest()
 
-    #c = ExecBashCommand("sudo iptables -nvL")
+        #c = ExecBashCommand("sudo iptables -nvL")
 
 
 
 
-    #print "command executed : " , c.out
+        #print "command executed : " , c.out
 
 
