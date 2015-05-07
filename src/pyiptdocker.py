@@ -215,9 +215,14 @@ def createChain(iptChainItem):
 
 def saveIptablesConfigurationWithoutDockerChains():
     iptableRulesFile='/etc/network/iptables.rules'
-    logger.info("saving iptables configuration on %s " , iptableRulesFile)
-    ExecBashCommand("sudo iptables-save | grep -iv ' docker0' | grep -v ' -j DOCKER' | grep -v ':DOCKER -' > "+iptableRulesFile,failPolicyJustExit)
-    logger.info("CONFIGURATION SAVED! destination was : %s " , iptableRulesFile)
+    iptables_persistent_ipv4='/etc/iptables/rules.v4'
+    map( lambda destination:(
+        logger.info("saving iptables configuration on %s " , destination) ,
+        ExecBashCommand("sudo iptables-save | grep -iv ' docker0' | grep -v ' -j DOCKER' | grep -v ':DOCKER -' > "+destination,failPolicyJustExit) ,
+        logger.info("CONFIGURATION SAVED! destination was : %s " , destination) ,
+    ),
+         [iptables_persistent_ipv4,iptableRulesFile])
+
 
 
 class IPTChainItem():
