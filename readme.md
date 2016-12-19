@@ -27,8 +27,41 @@ python $APP_SRC/pyiptdocker.py --save-rules
 create tests everywhere and refactor the design to made the application easier to use 
 
 
-# docker iptables helper
-## add iptables rules in custom chain without interfering with docker
+# docket image usage :
+```
+#build
+docker build -t ipth .
+
+## test iptables 
+docker run --rm -ti --cap-add=NET_ADMIN ipth iptables -nvL
+
+## test application correctly installed 
+docker run --rm -ti --cap-add=NET_ADMIN --net=host ipth python /usr/bin/pyiptdocker.py --test  
+
+## execute library :
+TEMPLATE_PATH=$(cd ./test && pwd)'/pyiptdocker_template_test.py'
+docker run --rm -ti --cap-add=NET_ADMIN --net=host -v $TEMPLATE_PATH:/opt/template.py:ro  ipth python /opt/template.py
+ 
+ 
+ 
+## more tests using docker and templated sample rules :
+TEMPLATE_PATH=$(cd ./test && pwd)'/sample/1_add_some_rules.py'
+docker run --rm -ti --cap-add=NET_ADMIN --net=host -v $TEMPLATE_PATH:/opt/template.py:ro  ipth python /opt/template.py
+ 
+## removed custom chains 
+TEMPLATE_PATH=$(cd ./test && pwd)'/sample/2_delete_cusotm_chains.py'
+docker run --rm -ti --cap-add=NET_ADMIN --net=host -v $TEMPLATE_PATH:/opt/template.py:ro  ipth python /opt/template.py
+
+
+## removed custom chains using default unintstall  
+TEMPLATE_PATH=$(cd ./test && pwd)'/sample/2_delete_cusotm_chains.py'
+docker run --rm -ti --cap-add=NET_ADMIN --net=host -v $TEMPLATE_PATH:/opt/template.py:ro  ipth python /usr/bin/pyiptdocker.py --uninstall --verbose
+
+
+
+
+
+```
 
 
 ## NB:

@@ -22,10 +22,11 @@ UNIT_TB=1024*UNIT_GB
 
 CONFIG = {
     "PYIPTDOCKER_VERSION" : 2.1 ,
-    "CUSTOM_CHAIN_PREFIX" : "ipth_" ,
+    "CUSTOM_CHAIN_PREFIX" : os.getenv('CUSTOM_CHAIN_PREFIX', "ipth_") ,
     "DEFAULT_ACCEPT_POLICIES" : True ,
-    "iptableRulesFile" : '/etc/network/iptables.rules' ,
-    "iptables_persistent_ipv4" : '/etc/iptables/rules.v4' ,
+    #    "iptableRulesFile" : '/etc/network/iptables.rules' , ##  use only 1 path to store rules
+    "iptables_persistent_ipv4" : '/etc/iptables/rules.v4' , ## iptables persistent default path ( https://www.thomas-krenn.com/en/wiki/Saving_Iptables_Firewall_Rules_Permanently )
+    "iptables_persistent_ipv6" : '/etc/iptables/rules.v6' , ## iptables persistent default
 
     ## THIS COMMAND ALSO INCLUDE FILTERS TO EXCLUDE DIFFERENTLY MANAGED CHAINS ,
     ## IE : kubernetes and docker rules should not be restored automatically on reboot
@@ -64,7 +65,7 @@ ALLOWED_CUSTOMCHAINS_POSITIONS = ["first","last","custom"]
 ##   interfaces to customize configuration
 ##
 
-def setDefaultAcceptPolicy(value):
+def configureDefaultAcceptPolicy(value):
     """
     in case firewall is restored due to an error this default policy is applied
     :param value:
@@ -90,7 +91,7 @@ def failPolicyJustExit(execBashCommand):
 
 def failPolicy_CleanIptablesAndExit(execBashCommand):
     logger.fatal( "error on execution occurred : %s " , execBashCommand )
-    setDefaultAcceptPolicy()
+    applyDefaultAcceptPolicy()
     deleteAllCustomChains()
     logger.fatal( "configuration cleaned, EXITING" )
     logger.fatal("!!!! FATAL ERROR,  command failed , exiting rc = %s , command = %s , stderr = %s , stdout =  %s" , execBashCommand.rc,execBashCommand.command,execBashCommand.err,execBashCommand.out)
@@ -122,7 +123,7 @@ class ExecBashCommand:
 
 
 
-def setDefaultAcceptPolicy():
+def applyDefaultAcceptPolicy():
     """
     set filter table to accept
     :return: nothing
@@ -279,12 +280,17 @@ def createChain(iptChainItem):
         ))
 
 def saveIptablesConfigurationWithoutDockerChains():
-    map( lambda destination:(
-        logger.info("saving iptables configuration on %s " , destination) ,
-        ExecBashCommand(CONFIG['IPTABLES_SAVE_CMD'] +" > "+destination,failPolicyJustExit) ,
-        logger.info("CONFIGURATION SAVED! destination was : %s " , destination) ,
-    ),
-         [CONFIG['iptables_persistent_ipv4'],CONFIG['iptableRulesFile']])
+    map(
+        lambda destination:(
+            logger.info("saving iptables configuration on %s " , destination) ,
+            ExecBashCommand(CONFIG['IPTABLES_SAVE_CMD'] +" > "+destination,failPolicyJustExit) ,
+            logger.info("CONFIGURATION SAVED! destination was : %s " , destination) ,
+        ),
+        [
+            CONFIG['iptables_persistent_ipv4']
+            #,CONFIG['iptableRulesFile']
+        ]
+    )
 
 
 
@@ -562,7 +568,7 @@ def performTest():
 
 def initialize():
     if CONFIG['DEFAULT_ACCEPT_POLICIES']:
-        setDefaultAcceptPolicy()
+        applyDefaultAcceptPolicy()
     deleteAllCustomChains()
 
 
@@ -594,7 +600,7 @@ if __name__ == '__main__':
         CONFIG['CUSTOM_CHAIN_PREFIX'] = OPTIONS.param_chains_prefix
 
     if OPTIONS.param_uninstall:
-        setDefaultAcceptPolicy()
+        applyDefaultAcceptPolicy()
         deleteAllCustomChains()
 
     if OPTIONS.param_run_test:
