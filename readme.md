@@ -18,6 +18,10 @@ export PYTHONPATH=$PYTHONPATH:$APP_SRC; python $TEMPLATE_SRC --verbose
 ## save results for iptables-restore that run after reboot ( so rules are applied immediately after network is available ) 
 python $APP_SRC/pyiptdocker.py --save-rules
 
+## use the ( apt installable) script iptables-persistent to manage the reload of rules , 
+    there are anyway more customizable ways 
+     - bind the script load to network devices start
+     - create custom init script that use iptables restore
 ```
 
 ## DOCKERZIED RUN: docker require capabilities to run iptables 
@@ -26,11 +30,12 @@ python $APP_SRC/pyiptdocker.py --save-rules
 
 
 
+
 ## TODO
 create tests everywhere and refactor the design to made the application easier to use 
 
 
-# docket image usage :
+# docker image usage :
 ```
 #build
 docker build -t ipth .
@@ -59,6 +64,10 @@ docker run --rm -ti --cap-add=NET_ADMIN --net=host -v $TEMPLATE_PATH:/opt/templa
 ## removed custom chains using default unintstall  
 TEMPLATE_PATH=$(cd ./test && pwd)'/sample/2_delete_cusotm_chains.py'
 docker run --rm -ti --cap-add=NET_ADMIN --net=host -v $TEMPLATE_PATH:/opt/template.py:ro  ipth python /usr/bin/pyiptdocker.py --uninstall --verbose
+
+
+### save rules :
+docker run --rm -ti --cap-add=NET_ADMIN --net=host -v /etc/iptables:/etc/iptables:rw  ipth python /usr/bin/pyiptdocker.py --save-rules
 
 ```
 

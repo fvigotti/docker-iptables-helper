@@ -49,7 +49,7 @@ logger.setLevel(logging.INFO)
 
 # default tables and chains
 IPTH_DEFAULTS = {
-    'tables': {
+    'tables': { ## -> cat /proc/net/ip_tables_names
         'nat': ['PREROUTING' ,'INPUT' ,'OUTPUT' ,'POSTROUTING'],  # chains
         'filter': ['INPUT','FORWARD' ,'OUTPUT' ], # chains
         'mangle': ['PREROUTING' ,'FORWARD','INPUT' ,'OUTPUT' ,'POSTROUTING'], # chains
