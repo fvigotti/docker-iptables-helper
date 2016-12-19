@@ -9,6 +9,7 @@ is required to update the rules (more idempotent behaviour)
  - https://gitlab.com/fravi/docker-iptables-helper
  - quay.io/fravi/pyipth
  - latest stable : quay.io/fravi/pyipth@sha256:d0ed69851f4c85795ac20673ec4f845fe3bccee98eaa9843d5b722a63b538a84
+ 
 # usage:
 ```
 export APP_SRC="......" # exact to pyiptdocker.py files 
@@ -45,6 +46,9 @@ docker run --rm -ti --cap-add=NET_ADMIN ipth iptables -nvL
 
 ## test application correctly installed 
 docker run --rm -ti --cap-add=NET_ADMIN --net=host ipth python /usr/bin/pyiptdocker.py --test  
+
+## flush all firwall rules 
+docker run --rm -ti --cap-add=NET_ADMIN --net=host ipth bash /usr/bin/stop-firewall.sh  
 
 ## execute library :
 TEMPLATE_PATH=$(cd ./test && pwd)'/sample/pyiptdocker_template_test.py'
