@@ -1,7 +1,8 @@
 from pyiptdocker import *
 
 logger.setLevel(logging.DEBUG)
-configureDefaultAcceptPolicy(False)
+CONFIG['DEFAULT_ACCEPT_POLICIES']['INPUT'] = 'DROP';
+CONFIG['DEFAULT_ACCEPT_POLICIES']['FORWARD'] = 'DROP';
 initialize()
 
 ######################################

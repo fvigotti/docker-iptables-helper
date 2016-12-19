@@ -1,7 +1,9 @@
 from pyiptdocker import *
 
 #CONFIG.DEFAULT_ACCEPT_POLICIES = False;
-configureDefaultAcceptPolicy(False)
+
+CONFIG['DEFAULT_ACCEPT_POLICIES']['INPUT'] = 'DROP';
+CONFIG['DEFAULT_ACCEPT_POLICIES']['FORWARD'] = 'DROP';
 initialize()
 
 ######################################
@@ -39,6 +41,5 @@ t_filter_input_last = TemplatedChainRules. \
 
 t_filter_input_last__chainName = t_filter_input_last.iptChainItem.chainName
 ######################################
-
 
 

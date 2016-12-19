@@ -19,11 +19,20 @@ UNIT_MB=1024*UNIT_KB
 UNIT_GB=1024*UNIT_MB
 UNIT_TB=1024*UNIT_GB
 
+"""
+# configuration default policies can be customized with :
+CONFIG['DEFAULT_ACCEPT_POLICIES']['INPUT'] = 'DROP';
+CONFIG['DEFAULT_ACCEPT_POLICIES']['FORWARD'] = 'DROP';
 
+"""
 CONFIG = {
     "PYIPTDOCKER_VERSION" : 2.1 ,
     "CUSTOM_CHAIN_PREFIX" : os.getenv('CUSTOM_CHAIN_PREFIX', "ipth_") ,
-    "DEFAULT_ACCEPT_POLICIES" : True ,
+    "DEFAULT_ACCEPT_POLICIES" : {
+        'INPUT' : 'ACCEPT',
+        'FORWARD': 'ACCEPT',
+        'OUTPUT': 'ACCEPT'
+    } ,
     #    "iptableRulesFile" : '/etc/network/iptables.rules' , ##  use only 1 path to store rules
     "iptables_persistent_ipv4" : '/etc/iptables/rules.v4' , ## iptables persistent default path ( https://www.thomas-krenn.com/en/wiki/Saving_Iptables_Firewall_Rules_Permanently )
     "iptables_persistent_ipv6" : '/etc/iptables/rules.v6' , ## iptables persistent default
@@ -65,13 +74,6 @@ ALLOWED_CUSTOMCHAINS_POSITIONS = ["first","last","custom"]
 ##   interfaces to customize configuration
 ##
 
-def configureDefaultAcceptPolicy(value):
-    """
-    in case firewall is restored due to an error this default policy is applied
-    :param value:
-    :return:
-    """
-    CONFIG['DEFAULT_ACCEPT_POLICIES'] = value
 
 
 
@@ -130,7 +132,8 @@ def applyDefaultAcceptPolicy():
     """
     filterChains = IPTH_DEFAULTS['tables']['filter']
     for k in range(len(filterChains )): # foreach chain
-        execIptable("-t filter  -P "+filterChains[k]+" ACCEPT")
+        chainName=filterChains[k]
+        execIptable("-t filter  -P "+chainName+" "+CONFIG["DEFAULT_ACCEPT_POLICIES"][chainName])
 
 def findChains(table):
     '''
@@ -567,8 +570,7 @@ def performTest():
 
 
 def initialize():
-    if CONFIG['DEFAULT_ACCEPT_POLICIES']:
-        applyDefaultAcceptPolicy()
+    applyDefaultAcceptPolicy()
     deleteAllCustomChains()
 
 

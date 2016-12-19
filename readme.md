@@ -47,7 +47,7 @@ docker run --rm -ti --cap-add=NET_ADMIN ipth iptables -nvL
 docker run --rm -ti --cap-add=NET_ADMIN --net=host ipth python /usr/bin/pyiptdocker.py --test  
 
 ## execute library :
-TEMPLATE_PATH=$(cd ./test && pwd)'/pyiptdocker_template_test.py'
+TEMPLATE_PATH=$(cd ./test && pwd)'/sample/pyiptdocker_template_test.py'
 docker run --rm -ti --cap-add=NET_ADMIN --net=host -v $TEMPLATE_PATH:/opt/template.py:ro  ipth python /opt/template.py
  
  
