@@ -8,7 +8,7 @@ is required to update the rules (more idempotent behaviour)
 ## this repo is public!
  - https://gitlab.com/fravi/docker-iptables-helper
  - quay.io/fravi/pyipth
-
+ - latest stable : quay.io/fravi/pyipth@sha256:d0ed69851f4c85795ac20673ec4f845fe3bccee98eaa9843d5b722a63b538a84
 # usage:
 ```
 export APP_SRC="......" # exact to pyiptdocker.py files 
