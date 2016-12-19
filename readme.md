@@ -33,7 +33,10 @@ python $APP_SRC/pyiptdocker.py --save-rules
 
 
 ## TODO
-create tests everywhere and refactor the design to made the application easier to use 
+create tests everywhere and refactor the design to made the application easier to use
+- at the moment chain placed as first rules in other chains are not enforced 
+  this means that rules are created as first jump-rule but nothing ensure that this jump remain the first
+  so new inserted rules ( like the KUBE*  DOCKER* rules ) are placed above  
 
 
 # docker image usage :
