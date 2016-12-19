@@ -3,8 +3,11 @@ this application is used as library for template files to handle iptables manipu
 have the work `DOCKER` in the name because I've used it mainly for docker, which uses iptables for his networking
 so I cannot flush the whole iptables at whill while doing firewalling,
 this application inject custom chains at the begin/end of main iptables chain and manage only those, so no firewall flush
-is required to update the rules (more idemnpotent behaviour)
+is required to update the rules (more idempotent behaviour)
 
+## this repo is public!
+ - https://gitlab.com/fravi/docker-iptables-helper
+ - quay.io/fravi/pyipth
 
 # usage:
 ```
@@ -57,11 +60,11 @@ docker run --rm -ti --cap-add=NET_ADMIN --net=host -v $TEMPLATE_PATH:/opt/templa
 TEMPLATE_PATH=$(cd ./test && pwd)'/sample/2_delete_cusotm_chains.py'
 docker run --rm -ti --cap-add=NET_ADMIN --net=host -v $TEMPLATE_PATH:/opt/template.py:ro  ipth python /usr/bin/pyiptdocker.py --uninstall --verbose
 
-
-
-
-
 ```
+
+## update remote repo manually:
+docker build -t quay.io/fravi/pyipth .
+docker push quay.io/fravi/pyipth:latest
 
 
 ## NB:
