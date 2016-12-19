@@ -7,19 +7,32 @@ import re
 import os
 import imp
 import logging
+import getpass
 
-CONFIG = {
-    "PYIPTDOCKER_VERSION" : 2.1 ,
-    "CUSTOM_CHAIN_PREFIX" : "ipth_"
-}
-
-
+##  CONSTANTS INTO VARIABLE
+USERNAME = getpass.getuser()
+SUDO_CMD="sudo " if USERNAME!="root" else ""
 
 BIT_TO_BYTE=1/8
 UNIT_KB=1024
 UNIT_MB=1024*UNIT_KB
 UNIT_GB=1024*UNIT_MB
 UNIT_TB=1024*UNIT_GB
+
+
+CONFIG = {
+    "PYIPTDOCKER_VERSION" : 2.1 ,
+    "CUSTOM_CHAIN_PREFIX" : "ipth_" ,
+    "DEFAULT_ACCEPT_POLICIES" : True ,
+    "iptableRulesFile" : '/etc/network/iptables.rules' ,
+    "iptables_persistent_ipv4" : '/etc/iptables/rules.v4' ,
+
+    ## THIS COMMAND ALSO INCLUDE FILTERS TO EXCLUDE DIFFERENTLY MANAGED CHAINS ,
+    ## IE : kubernetes and docker rules should not be restored automatically on reboot
+
+    "IPTABLES_SAVE_CMD" : SUDO_CMD+""" iptables-save | grep -iv ' docker0' | grep -v ' -j DOCKER' | grep -v ':DOCKER -'  | grep -v 'DOCKER-' | grep -v 'KUBE-' """
+}
+
 
 
 # prefix used in all custom chains
@@ -33,17 +46,42 @@ handler.setFormatter(formatter)
 logger.addHandler(handler)
 logger.setLevel(logging.INFO)
 
-
+# default tables and chains
 IPTH_DEFAULTS = {
     'tables': {
-        'nat': ['PREROUTING' ,'INPUT' ,'OUTPUT' ,'POSTROUTING'],
-        'filter': ['INPUT','FORWARD' ,'OUTPUT' ],
-        'mangle': ['PREROUTING' ,'FORWARD','INPUT' ,'OUTPUT' ,'POSTROUTING'],
-        'raw': ['PREROUTING'  ,'OUTPUT' ],
-        'security': ['INPUT','FORWARD' ,'OUTPUT' ],
-        }
+        'nat': ['PREROUTING' ,'INPUT' ,'OUTPUT' ,'POSTROUTING'],  # chains
+        'filter': ['INPUT','FORWARD' ,'OUTPUT' ], # chains
+        'mangle': ['PREROUTING' ,'FORWARD','INPUT' ,'OUTPUT' ,'POSTROUTING'], # chains
+        'raw': ['PREROUTING'  ,'OUTPUT' ], # chains
+        'security': ['INPUT','FORWARD' ,'OUTPUT' ], # chains
+    }
 }
 ALLOWED_CUSTOMCHAINS_POSITIONS = ["first","last","custom"]
+
+
+
+##
+##   interfaces to customize configuration
+##
+
+def setDefaultAcceptPolicy(value):
+    """
+    in case firewall is restored due to an error this default policy is applied
+    :param value:
+    :return:
+    """
+    CONFIG['DEFAULT_ACCEPT_POLICIES'] = value
+
+
+
+
+##
+##
+##  MAIN LIBRARY
+##
+##
+
+
 
 def failPolicyJustExit(execBashCommand):
     logger.fatal("!!!! FATAL ERROR,  command failed , exiting rc = %s , command = %s , stderr = %s , stdout =  %s" , execBashCommand.rc,execBashCommand.command,execBashCommand.err,execBashCommand.out)
@@ -60,22 +98,24 @@ def failPolicy_CleanIptablesAndExit(execBashCommand):
 
 
 def execIptable(command , onFailPolicy=failPolicy_CleanIptablesAndExit):
-    return ExecBashCommand("sudo /sbin/iptables " +command,onFailPolicy)
+    return ExecBashCommand(SUDO_CMD+"/sbin/iptables " +command,onFailPolicy)
 
 class ExecBashCommand:
 
     def __init__(self,command,onFailPolicy=None):
         self.command = command
-        logger.debug( "COMMAND ######################> %s " , self.command )
+        logger.debug( "COMMAND # [%s] " , self.command )
         self.p = subprocess.Popen(self.command , shell=True, stdout=subprocess.PIPE ,stderr=subprocess.PIPE)
         self.err = self.p.stderr.read().rstrip()
         self.out = self.p.stdout.read().rstrip()
         self.p.wait()
         self.rc = self.p.returncode
-        logger.debug("COMMAND STDOUT######################> %s " , self.out)
-        logger.debug("COMMAND STDERR######################> %s " , self.err)
-        logger.debug("COMMAND rc######################> %s " , self.rc)
+        if(len(self.out)) > 0:
+            logger.debug("COMMAND STDOUT [%s] " , self.out)
+        if(len(self.err)) > 0:
+            logger.debug("COMMAND STDERR [%s] " , self.err)
         if self.rc != 0 :
+            logger.debug("COMMAND rc [%s] " , self.rc)
             logger.warning("[ExecBashCommand] error rc = %s , command = %s , stderr = %s , stdout =  %s" , self.rc,self.command,self.err,self.out)
             if onFailPolicy is not None:
                 onFailPolicy(self)
@@ -83,8 +123,12 @@ class ExecBashCommand:
 
 
 def setDefaultAcceptPolicy():
+    """
+    set filter table to accept
+    :return: nothing
+    """
     filterChains = IPTH_DEFAULTS['tables']['filter']
-    for k in range(len(filterChains )):
+    for k in range(len(filterChains )): # foreach chain
         execIptable("-t filter  -P "+filterChains[k]+" ACCEPT")
 
 def findChains(table):
@@ -92,14 +136,17 @@ def findChains(table):
         :return array with chains found in table
     '''
     # return output in this format 'Chain INPUT (policy ACCEPT)'
-    c = execIptable("-n -L -t "+table+" | egrep \"^Chain\" ")
+    chainLines = \
+        execIptable("-n -L -t "+table+" | egrep \"^Chain\" ") \
+            .out.split("\n")
 
-    def getChainInLine(line):
+    # extract chain name from iptables output line
+    def extractChainName(line):
         m = re.search('^Chain ([^\s]*)', line)
         if m:
             return m.group(1)
 
-    return map(getChainInLine,c.out.split("\n"))
+    return map(extractChainName, chainLines)
 
 
 def findCustomChains(table):
@@ -117,12 +164,26 @@ def findCustomChains(table):
 
 def findJumpRuleInChain(table,chainToSearchInto,chainToFind):
     '''
+    :param table the table to search into ie: filter
+    :param chainToSearchInto the chain to search into ie: INPUT
+    :param chainToFind the chain to search for
     :returns list of rules ID that matches a jump rule to the desired chain in the requested chain
     '''
     logger.debug("findJumpRuleInChain: %s  %s %s",table,chainToSearchInto,chainToFind)
     c = execIptable("-n -t "+table+" -L "+chainToSearchInto+" --line-number")
-
-    def isRequiredChainJumpRule(ruleRow):
+    """
+    sample:
+iptables -t filter -L INPUT --line-numbers
+Chain INPUT (policy ACCEPT)
+num  target     prot opt source               destination
+1    ipth_first_filter_INPUT  all  --  anywhere             anywhere
+2    ipth_last_filter_INPUT  all  --  anywhere             anywhere
+    """
+    def filterJumpRuler(ruleRow):
+        """
+        :param ruleRow: rule to search for
+        :return: true if ruleRow has ben found
+        """
         #sample:1    ipth_first_filter_INPUT  all  --  anywhere             anywhere
         m = re.search('^\d+\s+([^\s]*) .*', ruleRow)
         logger.debug("[findJumpRuleInChain] matching %s , ? %s ", ruleRow ,m )
@@ -141,7 +202,7 @@ def findJumpRuleInChain(table,chainToSearchInto,chainToFind):
     #extract rule number of matching rules
     return map(extractJumpRuleNumber,
                # extract jump rules matching desired destination
-               filter(isRequiredChainJumpRule
+               filter(filterJumpRuler
                       ,c.out.split("\n")))
 
 
@@ -150,6 +211,7 @@ def recursiveDeleteOfChain(table,chainName):
     logger.debug("[recursiveDeleteOfChain] : %s %s",table,chainName)
     requestedTableChains = findChains(table)
 
+    # delete references to the chain in other chains
     for k in range(len(requestedTableChains)):
         searchIntoChain=requestedTableChains[k]
         while True:
@@ -217,14 +279,12 @@ def createChain(iptChainItem):
         ))
 
 def saveIptablesConfigurationWithoutDockerChains():
-    iptableRulesFile='/etc/network/iptables.rules'
-    iptables_persistent_ipv4='/etc/iptables/rules.v4'
     map( lambda destination:(
         logger.info("saving iptables configuration on %s " , destination) ,
-        ExecBashCommand("sudo iptables-save | grep -iv ' docker0' | grep -v ' -j DOCKER' | grep -v ':DOCKER -' > "+destination,failPolicyJustExit) ,
+        ExecBashCommand(CONFIG['IPTABLES_SAVE_CMD'] +" > "+destination,failPolicyJustExit) ,
         logger.info("CONFIGURATION SAVED! destination was : %s " , destination) ,
     ),
-         [iptables_persistent_ipv4,iptableRulesFile])
+         [CONFIG['iptables_persistent_ipv4'],CONFIG['iptableRulesFile']])
 
 
 
@@ -238,8 +298,14 @@ class IPTChainItem():
         return "destinationTable[%s] , destinationChain[%s] , destinationChainPosition[%s] , chainName[%s] ,  " \
                % (self.destinationTable,self.destinationChain,self.destinationChainPosition,self.chainName)
 
+
     @staticmethod
     def PositionedChain(tableAndChainAndPosition):
+        """
+        this is a constructor for IPTChainItem
+        :param tableAndChainAndPosition: a string that contain destination table name, chain name and position joined by "/", ie: "filter/INPUT/last"
+        :return: new chain Item
+        """
         if len(tableAndChainAndPosition.split("/")) != 3:
             sys.exit("invalid param tableAndChainAndPosition "+ str(tableAndChainAndPosition) + " , format is : destinationTable/chain/position(first|last) ")
         cc = IPTChainItem()
@@ -254,6 +320,11 @@ class IPTChainItem():
 
     @staticmethod
     def FloatingChain(tableAndChainsuffix):
+        """
+        this is a constructor for IPTChainItem
+        :param tableAndChainsuffix: a string that contain destination table name and  chain name joined by "/", ie: "filter/INPUT/last"
+        :return: new chain Item
+        """
         if len(tableAndChainsuffix.split("/")) != 2:
             sys.exit("invalid param chainAndTableName "+ str(tableAndChainsuffix) + " , format is : tableName/chainSuffix ")
 
@@ -273,11 +344,10 @@ def deleteAllCustomChains():
     logger.debug("[deleteAllCustomChains] _ start")
     logger.info("deleting all previously created custom chains ")
     map(
-        lambda tableName:
-        map(
+        lambda tableName: map(
             lambda customChain:recursiveDeleteOfChain(tableName,customChain) ,
             findCustomChains(tableName)),
-        IPTH_DEFAULTS['tables'].keys())
+        IPTH_DEFAULTS['tables'].keys()) # for each main tables
 
     logger.debug("[deleteAllCustomChains] _ end")
 
@@ -309,7 +379,7 @@ class TemplatedChainRules:
     def __cleanAndSplitRulesString(self,ruleString):
         return filter(
             lambda ruleRow:
-                len(ruleRow)>1 and ruleRow[0]!="#",
+            len(ruleRow)>1 and ruleRow[0]!="#",
             map(
                 lambda ruleRow:ruleRow.strip(), ruleString.split("\n")))
 
@@ -327,7 +397,7 @@ class TemplatedChainRules:
             return rule.format(
                 k_table=self.iptChainItem.destinationTable,
                 k_chain=self.iptChainItem.chainName,
-                )
+            )
 
         self.__appendRulesList(
             map(
@@ -382,7 +452,7 @@ def get_args():
     parse arguments
     """
 
-    usage = 'validate counterservlet data and send results back to collectd'
+    usage = 'this program should be called from a php templated file'
     parser = optparse.OptionParser(usage=usage)
 
 
@@ -452,7 +522,7 @@ def performTest():
     t_custom1_floatingchain = TemplatedChainRules.FloatingChain("filter/custom1").addAppendRules("""
     -j {stub_packet_counter} -m comment --comment " counter 5"
     """.format(stub_packet_counter=t_STUB_PACKET_COUNTER__chainName)
-    ).apply()
+                                                                                                 ).apply()
 
     t_custom1_floatingchain__chainName = t_custom1_floatingchain.iptChainItem.chainName
     logger.debug("t_custom1_floatingchain__chainName  = %s",t_custom1_floatingchain__chainName )
@@ -491,7 +561,8 @@ def performTest():
 
 
 def initialize():
-    setDefaultAcceptPolicy()
+    if CONFIG['DEFAULT_ACCEPT_POLICIES']:
+        setDefaultAcceptPolicy()
     deleteAllCustomChains()
 
 

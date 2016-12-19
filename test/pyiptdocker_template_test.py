@@ -1,6 +1,7 @@
 from pyiptdocker import *
 
-
+#CONFIG.DEFAULT_ACCEPT_POLICIES = False;
+setDefaultAcceptPolicy(False)
 initialize()
 
 ######################################
