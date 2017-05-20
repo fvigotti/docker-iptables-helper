@@ -38,7 +38,18 @@ create tests everywhere and refactor the design to made the application easier t
   this means that rules are created as first jump-rule but nothing ensure that this jump remain the first
   so new inserted rules ( like the KUBE*  DOCKER* rules ) are placed above  
 
-
+- if the policy doesn't exist, and has been just created, the program try to delete it , but the command that uses return error:
+  ie: 
+  ```
+        "2017-02-09 16:40:49,310 root         DEBUG    [deleteAllCustomChains] _ end",                                                                                                                              
+        "2017-02-09 16:40:49,310 root         CRITICAL configuration cleaned, EXITING",                                                                                                                             
+        "2017-02-09 16:40:49,310 root         CRITICAL !!!! FATAL ERROR,  command failed , exiting rc = 1 , command = /sbin/iptables -n -t nat -L ipth_last_nat_PREROUTING --line-number , stderr = iptables: No chain/target/match by that name. , stdout =  ",                                                                                                                                                                        
+        "failPolicy_CleanIptablesAndExit"
+    ], 
+    "warnings": []
+  ```
+    
+    
 # docker image usage :
 ```
 #build

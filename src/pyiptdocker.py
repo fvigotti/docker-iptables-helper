@@ -63,7 +63,7 @@ IPTH_DEFAULTS = {
         'filter': ['INPUT','FORWARD' ,'OUTPUT' ], # chains
         'mangle': ['PREROUTING' ,'FORWARD','INPUT' ,'OUTPUT' ,'POSTROUTING'], # chains
         'raw': ['PREROUTING'  ,'OUTPUT' ], # chains
-        'security': ['INPUT','FORWARD' ,'OUTPUT' ], # chains
+#        'security': ['INPUT','FORWARD' ,'OUTPUT' ], # chains ----> NB: removed because never used and not implemented in all kernels! 
     }
 }
 ALLOWED_CUSTOMCHAINS_POSITIONS = ["first","last","custom"]
@@ -614,6 +614,7 @@ if __name__ == '__main__':
 
 
     if OPTIONS.param_save_rules:
+        logger.info("SAVING RULES")
         saveIptablesConfigurationWithoutDockerChains()
 
 
