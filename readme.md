@@ -1,9 +1,9 @@
 ## DOCKER IPTABLES HELPER:
 this application is used as library for template files to handle iptables manipulation without having to reboot iptables
-have the work `DOCKER` in the name because I've used it mainly for docker, which uses iptables for his networking
-so I cannot flush the whole iptables at whill while doing firewalling,
-this application inject custom chains at the begin/end of main iptables chain and manage only those, so no firewall flush
-is required to update the rules (more idempotent behaviour)
+this project have the word `DOCKER` in the name because I've used it mainly for docker/kubernetes , which uses iptables for his networking
+so I cannot flush the whole iptables at will while doing firewalling,
+this application inject custom chains at the begin/end of main iptables tables/chains and manage only those, so no firewall flush
+is required to update the rules (idempotent behaviour)
 
 ## this repo is public!
  - https://gitlab.com/fravi/docker-iptables-helper
@@ -12,7 +12,7 @@ is required to update the rules (more idempotent behaviour)
  
 # usage:
 ```
-export APP_SRC="......" # exact to pyiptdocker.py files 
+export APP_SRC="......" # exact path to pyiptdocker.py file ( this application )  
 export TEMPLATE_SRC="......" # full path to python-pyipth template file 
 export PYTHONPATH=$PYTHONPATH:$APP_SRC; python $TEMPLATE_SRC --verbose
 
