@@ -4,3 +4,7 @@
 .idea/
 META-INF/
 
+branch.name
+build.name
+tag.name
+
